@@ -206,7 +206,7 @@ fun CentralFarmerImage() {
                 contentScale = ContentScale.Crop
             )
         }
-        
+        //aderghxhc
         // Success Radial Glow
         Box(
             modifier = Modifier
