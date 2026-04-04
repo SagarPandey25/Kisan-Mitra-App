@@ -1,6 +1,9 @@
 package com.example.kishanmitraapp.ui.screens.disease
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -22,12 +25,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.example.kishanmitraapp.ui.theme.*
-import androidx.core.content.FileProvider
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,13 +41,24 @@ fun DiseaseDetectionScreen(onBackClick: () -> Unit) {
     var showDiagnosis by remember { mutableStateOf(false) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var tempImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    // Permission Launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            val uri = getTempUri(context)
+            tempImageUri = uri
+        }
+    }
 
     // Gallery Launcher
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         selectedImageUri = uri
-        if (uri != null) showDiagnosis = true
+        if (uri != null) showDiagnosis = false // Hide diagnosis until upload
     }
 
     // Camera Launcher
@@ -53,16 +67,19 @@ fun DiseaseDetectionScreen(onBackClick: () -> Unit) {
     ) { success ->
         if (success) {
             selectedImageUri = tempImageUri
-            showDiagnosis = true
+            showDiagnosis = false // Hide diagnosis until upload
         }
     }
 
-    fun getTempUri(): Uri {
-        val tempFile = File.createTempFile("temp_image", ".jpg", context.externalCacheDir).apply {
-            createNewFile()
-            deleteOnExit()
+    fun launchCamera() {
+        val permissionCheckResult = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+        if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
+            val uri = getTempUri(context)
+            tempImageUri = uri
+            cameraLauncher.launch(uri)
+        } else {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
         }
-        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
     }
 
     Scaffold(
@@ -131,53 +148,112 @@ fun DiseaseDetectionScreen(onBackClick: () -> Unit) {
                 // Image Preview if selected
                 if (selectedImageUri != null) {
                     Card(
-                        modifier = Modifier.fillMaxWidth().height(200.dp),
-                        shape = RoundedCornerShape(20.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
-                        AsyncImage(
-                            model = selectedImageUri,
-                            contentDescription = "Selected Image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        Column {
+                            Box(modifier = Modifier.fillMaxWidth().height(250.dp)) {
+                                AsyncImage(
+                                    model = selectedImageUri,
+                                    contentDescription = "Selected Image",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                                // Remove actions
+                                IconButton(
+                                    onClick = { 
+                                        selectedImageUri = null
+                                        showDiagnosis = false
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White)
+                                }
+                            }
+                            
+                            // Upload and Recapture Section
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { launchCamera() },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SunsetOrange)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Recapture")
+                                }
+                                
+                                Button(
+                                    onClick = { 
+                                        isUploading = true
+                                        // Simulate upload
+                                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                            isUploading = false
+                                            showDiagnosis = true
+                                            Toast.makeText(context, "Image uploaded successfully!", Toast.LENGTH_SHORT).show()
+                                        }, 2000)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                                    enabled = !isUploading
+                                ) {
+                                    if (isUploading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                    } else {
+                                        Icon(Icons.Default.CloudUpload, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Upload")
+                                    }
+                                }
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // AI Image Scan Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = SunsetOrange, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Image Analysis", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(
-                                onClick = { 
-                                    val uri = getTempUri()
-                                    tempImageUri = uri
-                                    cameraLauncher.launch(uri)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = SunsetOrange),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Camera", fontSize = 12.sp)
-                            }
-                            Button(
-                                onClick = { galleryLauncher.launch("image/*") },
-                                colors = ButtonDefaults.buttonColors(containerColor = WaterBlueMid),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Collections, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Gallery", fontSize = 12.sp)
+                // Initial Selection Card (only show if no image selected)
+                if (selectedImageUri == null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = SunsetOrange, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Image Analysis", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Button(
+                                    onClick = { launchCamera() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SunsetOrange),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Camera")
+                                }
+                                Button(
+                                    onClick = { galleryLauncher.launch("image/*") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = WaterBlueMid),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Collections, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Gallery")
+                                }
                             }
                         }
                     }
@@ -227,6 +303,14 @@ fun DiseaseDetectionScreen(onBackClick: () -> Unit) {
             }
         }
     }
+}
+
+private fun getTempUri(context: android.content.Context): Uri {
+    val tempFile = File.createTempFile("temp_image", ".jpg", context.externalCacheDir).apply {
+        createNewFile()
+        deleteOnExit()
+    }
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
 }
 
 @Composable

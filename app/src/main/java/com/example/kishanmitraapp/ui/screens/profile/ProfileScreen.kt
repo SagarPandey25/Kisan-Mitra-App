@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.kishanmitraapp.ui.theme.*
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(onLogout: () -> Unit) {
     val scrollState = rememberScrollState()
     
     // Animation for "Flowing Water" effect
@@ -140,7 +140,7 @@ fun ProfileScreen() {
 
             // Blue Logout Button
             Button(
-                onClick = { /* Logout */ },
+                onClick = onLogout,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),

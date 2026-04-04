@@ -1,5 +1,6 @@
 package com.example.kishanmitraapp.ui.screens.auth
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,22 +16,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kishanmitraapp.data.model.LoginRequest
 import com.example.kishanmitraapp.ui.theme.*
+import com.example.kishanmitraapp.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onRegisterClick: () -> Unit
+    onRegisterClick: () -> Unit,
+    viewModel: AuthViewModel = viewModel()
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val loginResult = viewModel.loginResult
+
+    LaunchedEffect(loginResult) {
+        loginResult?.let { result ->
+            result.onSuccess {
+                // Success is handled by the direct navigation now for better flow as requested
+            }.onFailure {
+                Toast.makeText(context, it.message ?: "Login failed", Toast.LENGTH_LONG).show()
+                viewModel.loginResult = null
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -59,7 +79,7 @@ fun LoginScreen(
             )
             
             Text(
-                text = "Login to your farmer account",
+                text = "Login your's Farmer Account",
                 fontSize = 14.sp,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -72,7 +92,7 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = ManureBrown) },
-                colors = TextFieldDefaults.outlinedTextFieldColors(
+                colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = ManureBrown,
                     focusedLabelColor = ManureBrown
                 )
@@ -97,7 +117,7 @@ fun LoginScreen(
                     }
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
+                colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = ManureBrown,
                     focusedLabelColor = ManureBrown
                 )
@@ -113,7 +133,15 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = onLoginSuccess,
+                onClick = {
+                    // Navigate to home immediately as requested
+                    onLoginSuccess()
+                    
+                    // Also attempt login in background to keep API connected
+                    if (email.isNotBlank() && password.isNotBlank()) {
+                        viewModel.login(LoginRequest(email, password))
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),

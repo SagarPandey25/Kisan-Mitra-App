@@ -7,13 +7,13 @@ import retrofit2.http.*
 interface ApiService {
 
     @GET("health")
-    suspend fun healthCheck(): Response<ApiResponse<Map<String, String>>>
+    suspend fun healthCheck(): Response<ApiResponse<Map<String, Any>>>
 
     @POST("auth/register")
-    suspend fun register(@Body request: RegistrationRequest): Response<ApiResponse<AuthData>>
+    suspend fun register(@Body request: RegistrationRequest): Response<ApiResponse<AuthResponse>>
 
     @POST("auth/login")
-    suspend fun login(@Body request: LoginRequest): Response<ApiResponse<AuthData>>
+    suspend fun login(@Body request: LoginRequest): Response<ApiResponse<AuthResponse>>
 
     @POST("auth/refresh")
     suspend fun refreshTokens(@Body request: RefreshRequest): Response<ApiResponse<AuthTokens>>
@@ -25,5 +25,5 @@ interface ApiService {
     suspend fun getProfile(): Response<ApiResponse<UserProfile>>
 
     @PATCH("auth/me")
-    suspend fun updateProfile(@Body request: Map<String, Any>): Response<ApiResponse<UserProfile>>
+    suspend fun updateProfile(@Body request: Map<String, Any?>): Response<ApiResponse<UserProfile>>
 }

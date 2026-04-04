@@ -12,6 +12,7 @@ import com.example.kishanmitraapp.ui.screens.schemes.GovtSchemesScreen
 import com.example.kishanmitraapp.ui.screens.community.CommunityScreen
 import com.example.kishanmitraapp.ui.screens.profile.ProfileScreen
 import com.example.kishanmitraapp.ui.screens.splash.SplashScreen
+import com.example.kishanmitraapp.ui.screens.splash.GetStartedScreen
 import com.example.kishanmitraapp.ui.screens.auth.LoginScreen
 import com.example.kishanmitraapp.ui.screens.auth.RegisterScreen
 import com.example.kishanmitraapp.utils.AppLanguage
@@ -28,8 +29,18 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
 
         composable(Screen.Splash.route) {
             SplashScreen(onTimeout = {
-                navController.navigate(Screen.Login.route) {
+                // Splash now goes to GetStarted as requested
+                navController.navigate(Screen.GetStarted.route) {
                     popUpTo(Screen.Splash.route) { inclusive = true }
+                }
+            })
+        }
+
+        composable(Screen.GetStarted.route) {
+            GetStartedScreen(onGetStartedClick = {
+                // After GetStarted, user goes to Login
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(Screen.GetStarted.route) { inclusive = true }
                 }
             })
         }
@@ -37,6 +48,7 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
+                    // Once logged in, go to Home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -48,6 +60,7 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
         composable(Screen.Register.route) {
             RegisterScreen(
                 onRegisterSuccess = {
+                    // Once registered, go to Home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }
                     }
@@ -69,7 +82,10 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
             )
         }
 
-        composable(Screen.Chatbot.route) { ChatbotScreen() }
+        composable(Screen.Chatbot.route) { 
+            ChatbotScreen(onBackClick = { navController.popBackStack() }) 
+        }
+        
         composable(Screen.Weather.route) { 
             WeatherScreen(onBackClick = { navController.popBackStack() }) 
         }
@@ -86,6 +102,12 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
             GovtSchemesScreen(onBackClick = { navController.popBackStack() }) 
         }
         composable(Screen.Community.route) { CommunityScreen() }
-        composable(Screen.Profile.route) { ProfileScreen() }
+        composable(Screen.Profile.route) { 
+            ProfileScreen(onLogout = {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(Screen.Home.route) { inclusive = true }
+                }
+            }) 
+        }
     }
 }

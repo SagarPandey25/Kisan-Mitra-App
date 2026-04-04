@@ -2,6 +2,7 @@ package com.example.kishanmitraapp.navigation
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
+    object GetStarted : Screen("get_started")
     object Login : Screen("login")
     object Register : Screen("register")
     object Home : Screen("home")

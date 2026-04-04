@@ -21,15 +21,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kishanmitraapp.data.model.*
 import com.example.kishanmitraapp.ui.theme.*
 import com.example.kishanmitraapp.utils.AppLanguage
+import com.example.kishanmitraapp.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onLoginClick: () -> Unit,
-    onLanguageSelected: (AppLanguage) -> Unit
+    onLanguageSelected: (AppLanguage) -> Unit,
+    viewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf("") }
@@ -42,7 +46,7 @@ fun RegisterScreen(
     // Farm Info
     var irrigationMethod by remember { mutableStateOf("Drip") }
     var expandedIrrigation by remember { mutableStateOf(false) }
-    val waterSourcesOptions = listOf("Borewell", "Canal", "Rainwater", "River")
+    val waterSourcesOptions = listOf("Borewell", "Canal", "Rainwater", "River", "Pond", "DugWell")
     val selectedWaterSources = remember { mutableStateListOf<String>() }
 
     // Preferences
@@ -53,24 +57,37 @@ fun RegisterScreen(
     // Dialog state
     var showSuccessDialog by remember { mutableStateOf(false) }
 
+    val registerResult = viewModel.registerResult
+
+    LaunchedEffect(registerResult) {
+        registerResult?.let { result ->
+            result.onSuccess {
+                showSuccessDialog = true
+            }.onFailure {
+                Toast.makeText(context, it.message ?: "Registration failed", Toast.LENGTH_LONG).show()
+                viewModel.registerResult = null
+            }
+        }
+    }
+
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = { /* Don't dismiss by clicking outside */ },
             title = {
                 Text(
-                    text = "Registration Successful!",
+                    text = "Registration Successful! 🎉",
                     fontWeight = FontWeight.Bold,
                     color = GreenPrimary
                 )
             },
             text = {
-                Text(text = "You have successfully registered in Kishan App. Welcome to the community!")
+                Text(text = "You have successfully registered in Kisan App. Welcome to the community!")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        showSuccessDialog = false
                         onRegisterSuccess()
+                        showSuccessDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
                 ) {
@@ -245,7 +262,7 @@ fun RegisterScreen(
                     expanded = expandedIrrigation,
                     onDismissRequest = { expandedIrrigation = false }
                 ) {
-                    listOf("Drip", "Sprinkler", "Flood").forEach { method ->
+                    listOf("Drip", "Sprinkler", "FloodFurrow", "Surface", "SubSurface", "Manual").forEach { method ->
                         DropdownMenuItem(
                             text = { Text(method) },
                             onClick = {
@@ -290,19 +307,43 @@ fun RegisterScreen(
 
             Button(
                 onClick = {
-                    if (name.isBlank() || email.isBlank() || phone.isBlank() || password.isBlank() || selectedWaterSources.isEmpty()) {
-                        Toast.makeText(context, "First enter the above details", Toast.LENGTH_SHORT).show()
+                    if (name.isBlank() || email.isBlank() || phone.isBlank() || password.isBlank()) {
+                        Toast.makeText(context, "Please fill all required details", Toast.LENGTH_SHORT).show()
                     } else {
-                        showSuccessDialog = true
+                        val request = RegistrationRequest(
+                            fullName = name,
+                            email = email,
+                            phoneNumber = phone,
+                            password = password,
+                            preferredLanguage = selectedLanguage.name.lowercase().replaceFirstChar { it.uppercase() },
+                            farmInfo = FarmInfo(
+                                irrigationMethod = irrigationMethod,
+                                waterSources = selectedWaterSources.toList(),
+                                soilType = "Alluvial",
+                                landAreaAcres = 0.0,
+                                preferredSeasons = emptyList()
+                            ),
+                            preferences = UserPreferences(
+                                waterSavingsReport = waterSavingsReport,
+                                weatherAlerts = weatherAlerts,
+                                expertConsultation = expertConsultation
+                            )
+                        )
+                        viewModel.register(request)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ManureDark)
+                colors = ButtonDefaults.buttonColors(containerColor = ManureDark),
+                enabled = !viewModel.isLoading
             ) {
-                Text("Register Now", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                if (viewModel.isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Register Now", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

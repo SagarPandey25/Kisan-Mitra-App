@@ -1,5 +1,9 @@
 package com.example.kishanmitraapp.ui.screens.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,14 +16,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,9 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.kishanmitraapp.ui.theme.*
 import com.example.kishanmitraapp.utils.Translations
+import com.example.kishanmitraapp.viewmodel.WeatherViewModel
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,16 +47,38 @@ fun HomeScreen(
     onCropClick: () -> Unit,
     onDiseaseClick: () -> Unit,
     onSchemesClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    weatherViewModel: WeatherViewModel = viewModel()
 ) {
-    val features = listOf(
+    var searchQuery by remember { mutableStateOf("") }
+    val weatherState = weatherViewModel.weatherState
+    
+    val allFeatures = listOf(
         HomeFeature(Translations.getString("chatbot"), Icons.Default.Chat, EarthYellow, onChatClick),
         HomeFeature(Translations.getString("weather"), Icons.Default.WbSunny, Color(0xFF4FC3F7), onWeatherClick),
         HomeFeature(Translations.getString("mandi"), Icons.Default.Storefront, GreenSecondary, onMandiClick),
         HomeFeature(Translations.getString("crop_suggest"), Icons.Default.Agriculture, EarthBrown, onCropClick),
         HomeFeature(Translations.getString("disease_alert"), Icons.Default.BugReport, Color(0xFFE57373), onDiseaseClick),
-        HomeFeature(Translations.getString("govt_schemes"), Icons.Default.AccountBalance, Color(0xFF9575CD), onSchemesClick)
+        HomeFeature(Translations.getString("govt_schemes"), Icons.Default.AccountBalance, Color(0xFF9575CD), onSchemesClick),
+        HomeFeature("Agri News", Icons.Default.Newspaper, Color(0xFFFFA726)) { /* News */ },
+        HomeFeature("Expert Support", Icons.Default.SupportAgent, Color(0xFF66BB6A)) { /* Support */ },
+        HomeFeature("Fertilizer Calc", Icons.Default.Calculate, Color(0xFF26A69A)) { /* Calc */ },
+        HomeFeature("Soil Testing", Icons.Default.Science, Color(0xFF8D6E63)) { /* Science */ }
     )
+
+    val filteredFeatures = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            allFeatures.take(6)
+        } else {
+            allFeatures.filter { it.title.contains(searchQuery, ignoreCase = true) }
+        }
+    }
+
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            weatherViewModel.updateWeather(searchQuery)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -76,9 +103,6 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Notifications */ }) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = TextSecondary)
-                    }
                     IconButton(
                         onClick = onProfileClick,
                         modifier = Modifier
@@ -99,82 +123,125 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            // Search Bar
-            SearchBarSection()
+            SearchBarSection(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Header Card with Auto-scrolling Image Carousel (14 Agriculture Images)
-            HeaderSection()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Professional Insight Section (Stats + Mandi)
-            MarketInsightSection()
-
-            Spacer(modifier = Modifier.height(24.dp))
+            AnimatedVisibility(
+                visible = searchQuery.isEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Column {
+                    HeaderSection()
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MarketInsightSection(
+                        temp = weatherState.temperature,
+                        humidity = weatherState.humidity,
+                        isRefreshing = weatherViewModel.isRefreshing,
+                        onRefresh = { weatherViewModel.refreshWeather() }
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
 
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = Translations.getString("services"),
+                        text = if (searchQuery.isEmpty()) Translations.getString("services") else "Search Results",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = TextPrimary,
                             fontSize = 18.sp
                         )
                     )
-                    Text(
-                        text = "View All",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = GreenPrimary,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.clickable { /* View all services */ }
-                    )
+                    if (searchQuery.isEmpty()) {
+                        Text(
+                            text = "View All",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = GreenPrimary,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier.clickable { 
+                                searchQuery = "" 
+                            }
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                FeaturesGrid(features)
+                if (filteredFeatures.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No services found for '$searchQuery'",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                } else {
+                    FeaturesGrid(filteredFeatures)
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // Daily Tip Section
             DailyTipSection()
-            
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchBarSection() {
+fun SearchBarSection(query: String, onQueryChange: (String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .height(56.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color.White)
-            .clickable { /* Open Search */ }
-            .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.CenterStart
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Search, contentDescription = null, tint = TextSecondary)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Search for crops, mandi rates...",
-                color = TextSecondary.copy(alpha = 0.7f),
-                fontSize = 14.sp
-            )
-        }
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            placeholder = {
+                Text(
+                    text = "Search for crops, services...",
+                    color = TextSecondary.copy(alpha = 0.7f),
+                    fontSize = 14.sp
+                )
+            },
+            leadingIcon = {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = TextSecondary)
+            },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = TextSecondary)
+                    }
+                }
+            },
+            shape = RoundedCornerShape(28.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary.copy(alpha = 0.5f),
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
+            ),
+            singleLine = true
+        )
     }
 }
 
@@ -182,15 +249,15 @@ fun SearchBarSection() {
 @Composable
 fun HeaderSection() {
     val headerImages = listOf(
-        "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000&auto=format&fit=crop", // Field
-        "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=1000&auto=format&fit=crop", // Ploughing
-        "https://images.unsplash.com/photo-1560493676-04071c5f467b?q=80&w=1000&auto=format&fit=crop", // Farming
-        "https://images.unsplash.com/photo-1589923188900-85dae523342b?q=80&w=1000&auto=format&fit=crop", // Harvesting
-        "https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?q=80&w=1000&auto=format&fit=crop", // Plants
-        "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1000&auto=format&fit=crop", // Farmer
-        "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1000&auto=format&fit=crop", // Tractor
-        "https://images.unsplash.com/photo-1524486361537-8ad15938e1a3?q=80&w=1000&auto=format&fit=crop", // Greenery
-        "https://images.unsplash.com/photo-1563514227147-6d2ff665a6a0?q=80&w=1000&auto=format&fit=crop", // Irrigation
+        "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1560493676-04071c5f467b?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1589923188900-85dae523342b?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1524486361537-8ad15938e1a3?q=80&w=1000&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1563514227147-6d2ff665a6a0?q=80&w=1000&auto=format&fit=crop",
     )
 
     val pagerState = rememberPagerState(pageCount = { headerImages.size })
@@ -279,7 +346,17 @@ fun HeaderSection() {
 }
 
 @Composable
-fun MarketInsightSection() {
+fun MarketInsightSection(temp: String, humidity: String, isRefreshing: Boolean, onRefresh: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "rotation")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = "rotation"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -292,8 +369,7 @@ fun MarketInsightSection() {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Live Market & Weather",
                     style = MaterialTheme.typography.titleSmall.copy(
@@ -301,7 +377,14 @@ fun MarketInsightSection() {
                         color = TextPrimary
                     )
                 )
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = GreenPrimary, modifier = Modifier.size(18.dp))
+                IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        Icons.Default.Refresh, 
+                        contentDescription = "Refresh", 
+                        tint = GreenPrimary,
+                        modifier = if (isRefreshing) Modifier.rotate(rotation) else Modifier
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -310,11 +393,11 @@ fun MarketInsightSection() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                InsightItem(Icons.Default.WbSunny, "32°C", "Sunny", SkyBlue)
+                InsightItem(Icons.Default.WbSunny, temp, "Temperature", SkyBlue)
                 Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.LightGray.copy(alpha = 0.3f))
                 InsightItem(Icons.Default.TrendingUp, "₹2,275", "Wheat/q", GreenPrimary)
                 Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.LightGray.copy(alpha = 0.3f))
-                InsightItem(Icons.Default.WaterDrop, "45%", "Humidity", Color(0xFF5C6BC0))
+                InsightItem(Icons.Default.WaterDrop, humidity, "Humidity", Color(0xFF5C6BC0))
             }
         }
     }

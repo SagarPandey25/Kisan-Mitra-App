@@ -1,5 +1,6 @@
 package com.example.kishanmitraapp.ui.screens.crop
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,8 @@ import com.example.kishanmitraapp.ui.theme.*
 @Composable
 fun CropRecommendationScreen(onBackClick: () -> Unit) {
     var landArea by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
+    var isManualLocation by remember { mutableStateOf(false) }
     var selectedSeason by remember { mutableStateOf("Kharif") }
     var selectedSoilType by remember { mutableStateOf("Alluvial") }
     var showResult by remember { mutableStateOf(false) }
@@ -90,11 +93,68 @@ fun CropRecommendationScreen(onBackClick: () -> Unit) {
 
             // Form Section
             Text(
-                "Enter Land Details",
+                "Enter Details",
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Location Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = SunsetOrange)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Location", fontWeight = FontWeight.Bold)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Manual", fontSize = 12.sp, color = TextSecondary)
+                            Switch(
+                                checked = isManualLocation,
+                                onCheckedChange = { isManualLocation = it },
+                                colors = SwitchDefaults.colors(checkedThumbColor = SunsetOrange, checkedTrackColor = SunsetOrange.copy(alpha = 0.5f))
+                            )
+                        }
+                    }
+                    
+                    AnimatedVisibility(visible = isManualLocation) {
+                        OutlinedTextField(
+                            value = location,
+                            onValueChange = { location = it },
+                            label = { Text("Enter District/State") },
+                            placeholder = { Text("e.g. Pune, Maharashtra") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                focusedBorderColor = SunsetOrange,
+                                focusedLabelColor = SunsetOrange
+                            )
+                        )
+                    }
+                    
+                    if (!isManualLocation) {
+                        Text(
+                            "Current: GPS Location Auto-Detected",
+                            fontSize = 13.sp,
+                            color = GreenPrimary,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -185,14 +245,14 @@ fun CropRecommendationScreen(onBackClick: () -> Unit) {
 
             if (showResult) {
                 Spacer(modifier = Modifier.height(24.dp))
-                RecommendationCard(landArea, selectedSeason)
+                RecommendationCard(landArea, selectedSeason, if(isManualLocation) location else "Current Location")
             }
         }
     }
 }
 
 @Composable
-fun RecommendationCard(area: String, season: String) {
+fun RecommendationCard(area: String, season: String, loc: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -205,6 +265,8 @@ fun RecommendationCard(area: String, season: String) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Recommended Crop", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Analysis for: $loc", fontSize = 12.sp, color = TextSecondary)
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = if (season == "Kharif") "Rice / Sugarcane" else "Wheat / Mustard",
