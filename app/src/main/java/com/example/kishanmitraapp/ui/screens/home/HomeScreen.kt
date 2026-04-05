@@ -35,6 +35,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.kishanmitraapp.ui.theme.*
 import com.example.kishanmitraapp.utils.Translations
+import com.example.kishanmitraapp.viewmodel.MspViewModel
+import com.example.kishanmitraapp.viewmodel.SchemesViewModel
 import com.example.kishanmitraapp.viewmodel.WeatherViewModel
 import kotlinx.coroutines.delay
 
@@ -48,11 +50,19 @@ fun HomeScreen(
     onDiseaseClick: () -> Unit,
     onSchemesClick: () -> Unit,
     onProfileClick: () -> Unit,
-    weatherViewModel: WeatherViewModel = viewModel()
+    weatherViewModel: WeatherViewModel = viewModel(),
+    mspViewModel: MspViewModel = viewModel(),
+    schemesViewModel: SchemesViewModel = viewModel()
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val weatherState = weatherViewModel.weatherState
     
+    val mspData = mspViewModel.mspData
+    val latestMsp = mspData?.prices?.firstOrNull()
+
+    val newsData = schemesViewModel.newsData
+    val latestNews = newsData?.items?.firstOrNull()
+
     val allFeatures = listOf(
         HomeFeature(Translations.getString("chatbot"), Icons.Default.Chat, EarthYellow, onChatClick),
         HomeFeature(Translations.getString("weather"), Icons.Default.WbSunny, Color(0xFF4FC3F7), onWeatherClick),
@@ -72,6 +82,11 @@ fun HomeScreen(
         } else {
             allFeatures.filter { it.title.contains(searchQuery, ignoreCase = true) }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        mspViewModel.fetchMspPrices(crop = "Paddy")
+        schemesViewModel.fetchNews()
     }
 
     LaunchedEffect(searchQuery) {
@@ -141,8 +156,13 @@ fun HomeScreen(
                     MarketInsightSection(
                         temp = weatherState.temperature,
                         humidity = weatherState.humidity,
-                        isRefreshing = weatherViewModel.isRefreshing,
-                        onRefresh = { weatherViewModel.refreshWeather() }
+                        msp = if (latestMsp != null) "₹${latestMsp.mspPerQuintal.toInt()}" else "₹2,300",
+                        mspCrop = latestMsp?.crop?.substringBefore(" ") ?: "Paddy",
+                        isRefreshing = weatherViewModel.isRefreshing || mspViewModel.isLoading,
+                        onRefresh = { 
+                            weatherViewModel.refreshWeather()
+                            mspViewModel.fetchMspPrices(crop = "Paddy")
+                        }
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -196,7 +216,7 @@ fun HomeScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            DailyTipSection()
+            DailyTipSection(latestNews?.title)
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -346,7 +366,7 @@ fun HeaderSection() {
 }
 
 @Composable
-fun MarketInsightSection(temp: String, humidity: String, isRefreshing: Boolean, onRefresh: () -> Unit) {
+fun MarketInsightSection(temp: String, humidity: String, msp: String, mspCrop: String, isRefreshing: Boolean, onRefresh: () -> Unit) {
     val infiniteTransition = rememberInfiniteTransition(label = "rotation")
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -395,7 +415,7 @@ fun MarketInsightSection(temp: String, humidity: String, isRefreshing: Boolean, 
             ) {
                 InsightItem(Icons.Default.WbSunny, temp, "Temperature", SkyBlue)
                 Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.LightGray.copy(alpha = 0.3f))
-                InsightItem(Icons.Default.TrendingUp, "₹2,275", "Wheat/q", GreenPrimary)
+                InsightItem(Icons.Default.TrendingUp, msp, "$mspCrop/q", GreenPrimary)
                 Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.LightGray.copy(alpha = 0.3f))
                 InsightItem(Icons.Default.WaterDrop, humidity, "Humidity", Color(0xFF5C6BC0))
             }
@@ -486,7 +506,7 @@ fun FeatureCard(feature: HomeFeature, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun DailyTipSection() {
+fun DailyTipSection(newsHeadline: String?) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -504,18 +524,18 @@ fun DailyTipSection() {
                     .background(GreenPrimary, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Lightbulb, contentDescription = null, tint = Color.White)
+                Icon(if (newsHeadline != null) Icons.Default.Newspaper else Icons.Default.Lightbulb, contentDescription = null, tint = Color.White)
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = "Farmer's Daily Tip",
+                    text = if (newsHeadline != null) "Latest Agri News" else "Farmer's Daily Tip",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 16.sp,
                     color = GreenPrimary
                 )
                 Text(
-                    text = "Ensure proper soil moisture before sowing Rabi crops for better germination.",
+                    text = newsHeadline ?: "Ensure proper soil moisture before sowing Rabi crops for better germination.",
                     fontSize = 13.sp,
                     color = TextPrimary.copy(alpha = 0.8f),
                     lineHeight = 18.sp

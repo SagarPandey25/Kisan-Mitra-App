@@ -1,5 +1,6 @@
 package com.example.kishanmitraapp.ui.screens.profile
 
+import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,25 +18,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kishanmitraapp.ui.theme.*
+import com.example.kishanmitraapp.viewmodel.AuthViewModel
 
 @Composable
-fun ProfileScreen(onLogout: () -> Unit) {
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    viewModel: AuthViewModel = viewModel()
+) {
     val scrollState = rememberScrollState()
-    
-    // Animation for "Flowing Water" effect
-    val infiniteTransition = rememberInfiniteTransition(label = "waterFlow")
-    val waveOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ), label = "waveOffset"
-    )
+    val userProfile = viewModel.userProfile
+    val context = LocalContext.current
+
+    // Fetch profile on enter
+    LaunchedEffect(Unit) {
+        viewModel.getProfile()
+    }
+
+    // Handle error messages
+    LaunchedEffect(viewModel.errorMsg) {
+        viewModel.errorMsg?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.errorMsg = null
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -55,7 +66,6 @@ fun ProfileScreen(onLogout: () -> Unit) {
                     )
                 )
         ) {
-            // Decorative "Bubbles" or "Waves" background
             CanvasIcons()
 
             Column(
@@ -63,7 +73,6 @@ fun ProfileScreen(onLogout: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Profile Image with a "Water Ripple" border
                 Surface(
                     modifier = Modifier
                         .size(120.dp)
@@ -85,13 +94,13 @@ fun ProfileScreen(onLogout: () -> Unit) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Narendra Modi",
+                    text = userProfile?.fullName ?: "Farmer",
                     color = Color.White,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Water Conservation Advocate",
+                    text = userProfile?.email ?: "Digital Farming Partner",
                     color = WaterFoam.copy(alpha = 0.9f),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
@@ -101,58 +110,88 @@ fun ProfileScreen(onLogout: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Profile Details in "Bubbles" (Cards)
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-        ) {
-            Text(
-                "Water Usage & Farm Info",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = WaterBlueDeep
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            WaterInfoCard(
-                items = listOf(
-                    ProfileInfoItem("Irrigation Method", "Drip Irrigation", Icons.Default.Waves),
-                    ProfileInfoItem("Water Source", "Borewell & Canal", Icons.Default.Water),
-                    ProfileInfoItem("Soil Moisture", "Optimal (65%)", Icons.Default.Opacity)
-                )
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                "Preferences",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = WaterBlueDeep
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            WaterSettingsList()
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Blue Logout Button
-            Button(
-                onClick = onLogout,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WaterBlueDeep)
-            ) {
-                Icon(Icons.Default.Logout, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Logout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        if (viewModel.isLoading && userProfile == null) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = WaterBlueDeep)
             }
+        } else {
+            // Profile Details
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp)
+            ) {
+                Text(
+                    "Farm Information",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = WaterBlueDeep
+                )
 
-            Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                WaterInfoCard(
+                    items = listOf(
+                        ProfileInfoItem("Full Name", userProfile?.fullName ?: "N/A", Icons.Default.Badge),
+                        ProfileInfoItem("Phone Number", userProfile?.phoneNumber ?: "N/A", Icons.Default.Phone),
+                        ProfileInfoItem("Irrigation", userProfile?.farmInfo?.irrigationMethod ?: "Not set", Icons.Default.Waves),
+                        ProfileInfoItem("Soil Type", userProfile?.farmInfo?.soilType ?: "Not set", Icons.Default.Landscape),
+                        ProfileInfoItem("Water Source", userProfile?.farmInfo?.waterSources?.joinToString(", ") ?: "Not set", Icons.Default.Water)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    "Account Preferences",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = WaterBlueDeep
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                WaterSettingsList(
+                    preferences = listOf(
+                        "Water Savings Report" to (userProfile?.preferences?.waterSavingsReport ?: false),
+                        "Weather Alerts" to (userProfile?.preferences?.weatherAlerts ?: false),
+                        "Expert Consultation" to (userProfile?.preferences?.expertConsultation ?: false)
+                    ),
+                    onToggle = { key, value ->
+                        val updates = mutableMapOf<String, Any>()
+                        val currentPrefs = userProfile?.preferences ?: return@WaterSettingsList
+                        
+                        val newPrefs = when(key) {
+                            "Water Savings Report" -> currentPrefs.copy(waterSavingsReport = value)
+                            "Weather Alerts" -> currentPrefs.copy(weatherAlerts = value)
+                            "Expert Consultation" -> currentPrefs.copy(expertConsultation = value)
+                            else -> currentPrefs
+                        }
+                        updates["preferences"] = newPrefs
+                        viewModel.updateProfile(updates)
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Button(
+                    onClick = { viewModel.logout(onLogout) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = WaterBlueDeep),
+                    enabled = !viewModel.isLoading
+                ) {
+                    if (viewModel.isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Logout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
+            }
         }
     }
 }
@@ -215,18 +254,13 @@ fun WaterInfoCard(items: List<ProfileInfoItem>) {
 }
 
 @Composable
-fun WaterSettingsList() {
-    val settings = listOf(
-        Pair("Water Savings Report", Icons.Default.Assessment),
-        Pair("Weather Alerts", Icons.Default.NotificationsActive),
-        Pair("Expert Consultation", Icons.Default.SupportAgent),
-        Pair("Language", Icons.Default.Language)
-    )
-
+fun WaterSettingsList(
+    preferences: List<Pair<String, Boolean>>,
+    onToggle: (String, Boolean) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        settings.forEach { (title, icon) ->
+        preferences.forEach { (title, isEnabled) ->
             Surface(
-                onClick = { /* Navigate */ },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 color = Color.White,
@@ -236,10 +270,19 @@ fun WaterSettingsList() {
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(icon, contentDescription = null, tint = WaterBlueMid, modifier = Modifier.size(24.dp))
+                    Icon(
+                        if (isEnabled) Icons.Default.CheckCircle else Icons.Default.Cancel, 
+                        contentDescription = null, 
+                        tint = if (isEnabled) GreenPrimary else Color.Gray, 
+                        modifier = Modifier.size(24.dp)
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(title, modifier = Modifier.weight(1f), fontSize = 15.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = WaterBlueLight)
+                    Switch(
+                        checked = isEnabled, 
+                        onCheckedChange = { onToggle(title, it) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = WaterBlueDeep)
+                    )
                 }
             }
         }

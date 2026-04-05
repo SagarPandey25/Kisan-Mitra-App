@@ -8,7 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.example.kishanmitraapp.navigation.AppNavGraph
-import com.example.kishanmitraapp.ui.theme.KishanMitraTheme
+import com.example.kishanmitraapp.ui.theme.KisanMitraTheme
 import com.example.kishanmitraapp.utils.AppLanguage
 import com.example.kishanmitraapp.utils.LocalAppLanguage
 
@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             var currentLanguage by remember { mutableStateOf(AppLanguage.ENGLISH) }
 
             CompositionLocalProvider(LocalAppLanguage provides currentLanguage) {
-                KishanMitraTheme {
+                KisanMitraTheme {
                     Surface(modifier = Modifier.fillMaxSize()) {
                         AppNavGraph(onLanguageChange = { currentLanguage = it })
                     }

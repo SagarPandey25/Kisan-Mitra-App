@@ -26,4 +26,20 @@ interface ApiService {
 
     @PATCH("auth/me")
     suspend fun updateProfile(@Body request: Map<String, Any?>): Response<ApiResponse<UserProfile>>
+
+    @GET("msp")
+    suspend fun getMspPrices(
+        @Query("season") season: String? = null,
+        @Query("year") year: String? = null,
+        @Query("crop") crop: String? = null
+    ): Response<ApiResponse<MspData>>
+
+    @POST("chat")
+    suspend fun chatWithAi(@Body request: ChatRequest): Response<ApiResponse<ChatResponse>>
+
+    @GET("schemes")
+    suspend fun getGovtSchemes(@Query("category") category: String? = null): Response<ApiResponse<SchemesData>>
+
+    @GET("schemes/news")
+    suspend fun getSchemeNews(): Response<ApiResponse<SchemeNewsData>>
 }

@@ -1,5 +1,6 @@
 package com.example.kishanmitraapp.ui.screens.auth
 
+import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,6 +45,13 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var selectedLanguage by remember { mutableStateOf(AppLanguage.ENGLISH) }
     var expandedLanguage by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    // Error states
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
 
     // Farm Info
     var irrigationMethod by remember { mutableStateOf("Drip") }
@@ -70,6 +80,42 @@ fun RegisterScreen(
         }
     }
 
+    fun validateInputs(): Boolean {
+        var isValid = true
+
+        if (name.length < 2 || name.length > 100) {
+            nameError = "Name must be between 2 and 100 characters"
+            isValid = false
+        } else {
+            nameError = null
+        }
+
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            emailError = "Please enter a valid email address"
+            isValid = false
+        } else {
+            emailError = null
+        }
+
+        val phonePattern = Regex("^[6-9]\\d{9}$")
+        if (!phonePattern.matches(phone)) {
+            phoneError = "Must be a 10-digit Indian number starting with 6-9"
+            isValid = false
+        } else {
+            phoneError = null
+        }
+
+        val passwordPattern = Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@#\$%^&+=!]).{8,128}$")
+        if (!passwordPattern.matches(password)) {
+            passwordError = "8+ chars, Uppercase, Lowercase, Digit & Special Char"
+            isValid = false
+        } else {
+            passwordError = null
+        }
+
+        return isValid
+    }
+
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = { /* Don't dismiss by clicking outside */ },
@@ -81,7 +127,7 @@ fun RegisterScreen(
                 )
             },
             text = {
-                Text(text = "You have successfully registered in Kisan App. Welcome to the community!")
+                Text(text = "You have successfully registered in Kishan App. Welcome to the community!")
             },
             confirmButton = {
                 Button(
@@ -138,8 +184,13 @@ fun RegisterScreen(
             
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { 
+                    name = it
+                    if (nameError != null) nameError = null
+                },
                 label = { Text("Full Name") },
+                isError = nameError != null,
+                supportingText = { nameError?.let { Text(it) } },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = ManureBrown) },
@@ -153,8 +204,13 @@ fun RegisterScreen(
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { 
+                    email = it
+                    if (emailError != null) emailError = null
+                },
                 label = { Text("Email Address") },
+                isError = emailError != null,
+                supportingText = { emailError?.let { Text(it) } },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = ManureBrown) },
@@ -168,8 +224,13 @@ fun RegisterScreen(
 
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it },
+                onValueChange = { 
+                    phone = it
+                    if (phoneError != null) phoneError = null
+                },
                 label = { Text("Phone Number") },
+                isError = phoneError != null,
+                supportingText = { phoneError?.let { Text(it) } },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = ManureBrown) },
@@ -183,11 +244,32 @@ fun RegisterScreen(
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = { 
+                    password = it
+                    if (passwordError != null) passwordError = null
+                },
                 label = { Text("Password") },
+                isError = passwordError != null,
+                supportingText = { 
+                    if (passwordError != null) {
+                        Text(passwordError!!)
+                    } else {
+                        Text("Suggest: Agri@2024 (1 Upper, 1 Lower, 1 Digit, 1 Special)", fontSize = 11.sp)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ManureBrown) },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = ManureBrown
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = ManureBrown,
                     focusedLabelColor = ManureBrown
@@ -307,9 +389,7 @@ fun RegisterScreen(
 
             Button(
                 onClick = {
-                    if (name.isBlank() || email.isBlank() || phone.isBlank() || password.isBlank()) {
-                        Toast.makeText(context, "Please fill all required details", Toast.LENGTH_SHORT).show()
-                    } else {
+                    if (validateInputs()) {
                         val request = RegistrationRequest(
                             fullName = name,
                             email = email,
@@ -330,6 +410,8 @@ fun RegisterScreen(
                             )
                         )
                         viewModel.register(request)
+                    } else {
+                        Toast.makeText(context, "Please fix the errors in the form", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier

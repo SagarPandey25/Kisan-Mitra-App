@@ -1,5 +1,6 @@
 package com.example.kishanmitraapp.ui.screens.splash
 
+import android.view.animation.Interpolator
 import android.view.animation.OvershootInterpolator
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -76,7 +77,7 @@ fun GetStartedScreen(onGetStartedClick: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Kishan Mitra",
+                    text = "Kisan Mitra",
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
@@ -105,11 +106,11 @@ fun GetStartedScreen(onGetStartedClick: () -> Unit) {
                     val radius = 140.dp
 
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        // Explicitly using the top-level AnimatedVisibility to avoid ColumnScope ambiguity
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isVisible,
                             enter = scaleIn(animationSpec = tween(600, easing = overshootInterpolator.toEasing())) + fadeIn(),
-                            exit = fadeOut(),
-                            modifier = Modifier.align(Alignment.Center)
+                            exit = fadeOut()
                         ) {
                             ServiceOrbitIcon(service, angle, radius)
                         }
@@ -117,7 +118,7 @@ fun GetStartedScreen(onGetStartedClick: () -> Unit) {
                 }
 
                 // Central Successful Farmer Image
-                CentralFarmerImage()
+                CentralFarmerImageWithResult()
             }
 
             // 4. Bottom Welcome Card
@@ -171,72 +172,107 @@ fun AgriAuraBackground() {
                 )
             )
         }
-        
-        // Subtle Noise/Grain texture overlay can be added here if needed, 
-        // but blur(100.dp) gives a nice smooth liquid feel.
     }
 }
 
 @Composable
-fun CentralFarmerImage() {
+fun CentralFarmerImageWithResult() {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f, targetValue = 1.06f,
         animationSpec = infiniteRepeatable(tween(2500, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = ""
     )
 
-    Box(
-        modifier = Modifier
-            .size(190.dp)
-            .scale(scale)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.2f))
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize().clip(CircleShape),
-            color = Color.White,
-            tonalElevation = 12.dp
-        ) {
-            AsyncImage(
-                model = "https://images.unsplash.com/photo-1560493676-04071c5f467b?q=80&w=500&auto=format&fit=crop",
-                contentDescription = "Success Farmer",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-        //aderghxhc
-        // Success Radial Glow
+    Box(contentAlignment = Alignment.Center) {
+        // Money and Crops popping animation
+        PoppingElements()
+
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .size(190.dp)
+                .scale(scale)
                 .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(Color.Transparent, Color(0xFF4CAF50).copy(alpha = 0.25f))
-                    )
-                )
-        )
-        
-        // Gold Result Badge
-        Surface(
-            modifier = Modifier
-                .size(40.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = (-5).dp, y = 5.dp),
-            shape = CircleShape,
-            color = Color.White,
-            shadowElevation = 4.dp
+                .background(Color.White.copy(alpha = 0.2f))
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Default.Eco,
-                    contentDescription = null,
-                    tint = Color(0xFFFFD700),
-                    modifier = Modifier.size(24.dp)
+            Surface(
+                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                color = Color.White,
+                tonalElevation = 0.dp, 
+                shadowElevation = 12.dp
+            ) {
+                // High Quality Happy/Smiling Farmer Image
+                AsyncImage(
+                    model = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTN1PPSXwmv0gyCEdEB5_6vJR3086yNCTTCGQ&s",
+                    contentDescription = "Happy Farmer with Phone",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
+            
+            // Success Radial Glow
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color.Transparent, Color(0xFF4CAF50).copy(alpha = 0.25f))
+                        )
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+fun PoppingElements() {
+    val elements = listOf(
+        Icons.Default.CurrencyRupee to Color(0xFFFFD700),
+        Icons.Default.Eco to Color(0xFF4CAF50),
+        Icons.Default.Payments to Color(0xFFFFD700),
+        Icons.Default.Grain to Color(0xFFFBC02D),
+        Icons.Default.AddCard to Color(0xFFFFD700),
+        Icons.Default.Grass to Color(0xFF81C784)
+    )
+
+    Box(modifier = Modifier.size(300.dp)) {
+        elements.forEachIndexed { index, pair ->
+            val infiniteTransition = rememberInfiniteTransition(label = "pop$index")
+            val angle = (index * (360f / elements.size)).toDouble()
+            
+            val travel by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 3000, delayMillis = index * 400, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                ), label = "travel"
+            )
+
+            val opacity by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 3000, delayMillis = index * 400, easing = FastOutLinearInEasing),
+                    repeatMode = RepeatMode.Restart
+                ), label = "opacity"
+            )
+
+            val distance = 100.dp + (travel * 80).dp
+            val x = (distance.value * cos(Math.toRadians(angle))).dp
+            val y = (distance.value * sin(Math.toRadians(angle))).dp
+
+            Icon(
+                imageVector = pair.first,
+                contentDescription = null,
+                tint = pair.second.copy(alpha = opacity),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(x = x, y = y)
+                    .size(24.dp)
+            )
         }
     }
 }
@@ -254,6 +290,7 @@ fun ServiceOrbitIcon(service: AppService, angle: Double, radius: androidx.compos
             modifier = Modifier.size(60.dp),
             shape = CircleShape,
             color = Color.White,
+            tonalElevation = 0.dp,
             shadowElevation = 10.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -281,13 +318,14 @@ fun ServiceOrbitIcon(service: AppService, angle: Double, radius: androidx.compos
 
 @Composable
 fun BottomWelcomeCard(onGetStartedClick: () -> Unit) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 32.dp),
         shape = RoundedCornerShape(36.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 20.dp)
+        color = Color.White.copy(alpha = 0.96f),
+        tonalElevation = 0.dp,
+        shadowElevation = 20.dp
     ) {
         Column(
             modifier = Modifier.padding(28.dp),
@@ -328,7 +366,7 @@ fun BottomWelcomeCard(onGetStartedClick: () -> Unit) {
     }
 }
 
-private fun OvershootInterpolator.toEasing() = Easing { x ->
+private fun Interpolator.toEasing() = Easing { x ->
     getInterpolation(x)
 }
 private val overshootInterpolator = OvershootInterpolator(1.3f)

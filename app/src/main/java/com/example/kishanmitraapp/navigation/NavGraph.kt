@@ -1,7 +1,9 @@
 package com.example.kishanmitraapp.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.*
+import com.example.kishanmitraapp.data.local.TokenManager
 import com.example.kishanmitraapp.ui.screens.home.HomeScreen
 import com.example.kishanmitraapp.ui.screens.chatbot.ChatbotScreen
 import com.example.kishanmitraapp.ui.screens.weather.WeatherScreen
@@ -21,6 +23,9 @@ import com.example.kishanmitraapp.utils.AppLanguage
 fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
 
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val tokenManager = TokenManager(context)
+    val isLoggedIn = tokenManager.getAccessToken() != null
 
     NavHost(
         navController = navController,
@@ -29,7 +34,7 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
 
         composable(Screen.Splash.route) {
             SplashScreen(onTimeout = {
-                // Splash now goes to GetStarted as requested
+                // Splash now always goes to GetStarted
                 navController.navigate(Screen.GetStarted.route) {
                     popUpTo(Screen.Splash.route) { inclusive = true }
                 }
@@ -38,9 +43,16 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
 
         composable(Screen.GetStarted.route) {
             GetStartedScreen(onGetStartedClick = {
-                // After GetStarted, user goes to Login
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(Screen.GetStarted.route) { inclusive = true }
+                if (isLoggedIn) {
+                    // If already logged in, go to Home
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.GetStarted.route) { inclusive = true }
+                    }
+                } else {
+                    // Not logged in, go to Login
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.GetStarted.route) { inclusive = true }
+                    }
                 }
             })
         }
@@ -48,7 +60,6 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
-                    // Once logged in, go to Home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -60,7 +71,6 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
         composable(Screen.Register.route) {
             RegisterScreen(
                 onRegisterSuccess = {
-                    // Once registered, go to Home
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }
                     }
@@ -83,7 +93,14 @@ fun AppNavGraph(onLanguageChange: (AppLanguage) -> Unit) {
         }
 
         composable(Screen.Chatbot.route) { 
-            ChatbotScreen(onBackClick = { navController.popBackStack() }) 
+            ChatbotScreen(
+                onBackClick = { navController.popBackStack() },
+                onLoginClick = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
+                }
+            ) 
         }
         
         composable(Screen.Weather.route) { 

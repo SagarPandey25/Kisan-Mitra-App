@@ -18,28 +18,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kishanmitraapp.data.model.MspPrice
 import com.example.kishanmitraapp.ui.theme.*
-
-data class MandiPrice(val crop: String, val price: String, val change: String, val isUp: Boolean)
+import com.example.kishanmitraapp.viewmodel.MspViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MandiScreen(onBackClick: () -> Unit) {
+fun MandiScreen(
+    onBackClick: () -> Unit,
+    viewModel: MspViewModel = viewModel()
+) {
     var searchQuery by remember { mutableStateOf("") }
-    
-    val prices = listOf(
-        MandiPrice("Wheat (Gehu)", "₹2,275/q", "+₹25", true),
-        MandiPrice("Rice (Chawal)", "₹3,100/q", "-₹10", false),
-        MandiPrice("Cotton (Kapas)", "₹7,500/q", "+₹150", true),
-        MandiPrice("Soybean", "₹4,850/q", "+₹40", true),
-        MandiPrice("Mustard (Sarson)", "₹5,400/q", "-₹20", false),
-        MandiPrice("Onion (Pyaj)", "₹2,100/q", "+₹300", true)
-    )
+    val mspData = viewModel.mspData
+    val isLoading = viewModel.isLoading
+    val errorMsg = viewModel.errorMsg
+
+    LaunchedEffect(Unit) {
+        viewModel.fetchMspPrices()
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mandi Prices", fontWeight = FontWeight.Bold) },
+                title = { Text("MSP Prices", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -55,7 +57,7 @@ fun MandiScreen(onBackClick: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Money Theme Header
+            // Header with Search
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,11 +73,10 @@ fun MandiScreen(onBackClick: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Payments, contentDescription = null, tint = EarthYellow, modifier = Modifier.size(32.dp))
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Today's Market Value", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("Government MSP Rates", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Search Bar
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
@@ -96,16 +97,27 @@ fun MandiScreen(onBackClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // List of Prices
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val filteredPrices = if (searchQuery.isEmpty()) prices else prices.filter { it.crop.contains(searchQuery, ignoreCase = true) }
-                
-                items(filteredPrices) { item ->
-                    MandiPriceCard(item)
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = GreenPrimary)
+                }
+            } else if (errorMsg != null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = errorMsg ?: "Unknown error", color = Color.Red)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val filteredPrices = mspData?.prices?.filter { 
+                        it.crop.contains(searchQuery, ignoreCase = true) 
+                    } ?: emptyList()
+                    
+                    items(filteredPrices) { item ->
+                        MspPriceCard(item)
+                    }
                 }
             }
         }
@@ -113,7 +125,7 @@ fun MandiScreen(onBackClick: () -> Unit) {
 }
 
 @Composable
-fun MandiPriceCard(mandiPrice: MandiPrice) {
+fun MspPriceCard(mspPrice: MspPrice) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -139,28 +151,14 @@ fun MandiPriceCard(mandiPrice: MandiPrice) {
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text(mandiPrice.crop, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
-                    Text("Per Quintal", fontSize = 12.sp, color = TextSecondary)
+                    Text(mspPrice.crop, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
+                    Text("${mspPrice.season} | ${mspPrice.year}", fontSize = 12.sp, color = TextSecondary)
                 }
             }
             
             Column(horizontalAlignment = Alignment.End) {
-                Text(mandiPrice.price, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = GreenDark)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (mandiPrice.isUp) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
-                        contentDescription = null,
-                        tint = if (mandiPrice.isUp) Color(0xFF43A047) else Color(0xFFE53935),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        mandiPrice.change,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (mandiPrice.isUp) Color(0xFF43A047) else Color(0xFFE53935)
-                    )
-                }
+                Text("₹${mspPrice.mspPerQuintal.toInt()}", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = GreenDark)
+                Text(mspPrice.unit, fontSize = 11.sp, color = TextSecondary)
             }
         }
     }

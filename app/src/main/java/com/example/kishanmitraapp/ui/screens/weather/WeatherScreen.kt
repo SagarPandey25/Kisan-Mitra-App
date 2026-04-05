@@ -28,7 +28,6 @@ import com.example.kishanmitraapp.ui.theme.*
 fun WeatherScreen(onBackClick: () -> Unit) {
     // Mock current season - Varsha (Monsoon) for demonstration
     val currentSeason = "Varsha (Monsoon)"
-    val seasonColor = MonsoonGreen
     val seasonGradient = listOf(SkyBlue, MonsoonGreen)
 
     Scaffold(
@@ -141,11 +140,11 @@ fun WeatherScreen(onBackClick: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
             
             // Farmer Tip
-            Card(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MonsoonGreen.copy(alpha = 0.1f)),
+                color = MonsoonGreen.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -166,11 +165,11 @@ fun WeatherScreen(onBackClick: () -> Unit) {
 
 @Composable
 fun WeatherDetailItem(label: String, value: String, icon: ImageVector, color: Color, modifier: Modifier = Modifier) {
-    Card(
+    Surface(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = Color.White,
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -194,10 +193,10 @@ fun WeatherDetailItem(label: String, value: String, icon: ImageVector, color: Co
 
 @Composable
 fun SeasonCard(item: SeasonItem) {
-    Card(
+    Surface(
         modifier = Modifier.width(100.dp).fillMaxHeight(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = item.color.copy(alpha = 0.2f)),
+        color = item.color.copy(alpha = 0.2f),
         border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(item.color, Color.White)))
     ) {
         Column(

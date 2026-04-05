@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
@@ -23,26 +24,27 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.kishanmitraapp.data.model.Message
 import com.example.kishanmitraapp.ui.theme.*
-import kotlinx.coroutines.launch
-
-data class Message(val text: String, val isUser: Boolean)
+import com.example.kishanmitraapp.viewmodel.ChatbotViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatbotScreen(onBackClick: () -> Unit) {
+fun ChatbotScreen(
+    onBackClick: () -> Unit,
+    onLoginClick: () -> Unit,
+    viewModel: ChatbotViewModel = viewModel()
+) {
     var messageText by remember { mutableStateOf("") }
-    val messages = remember { mutableStateListOf(
-        Message("Hello! I am your Kisan Sahayak. How can I help you today?", false)
-    ) }
+    val messages = viewModel.messages
     
     var selectedLanguage by remember { mutableStateOf("English") }
     val languages = listOf("English", "Hindi", "Punjabi", "Marathi", "Gujarati")
     var showLanguageMenu by remember { mutableStateOf(false) }
     
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
@@ -81,7 +83,6 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
                                     onClick = {
                                         selectedLanguage = lang
                                         showLanguageMenu = false
-                                        messages.add(Message("Language changed to $lang", false))
                                     }
                                 )
                             }
@@ -99,7 +100,6 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Background Farmer Image
             AsyncImage(
                 model = "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=1000&auto=format&fit=crop",
                 contentDescription = null,
@@ -108,7 +108,6 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
                 alpha = 0.2f
             )
             
-            // Gradient Overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -123,7 +122,6 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
             )
 
             Column(modifier = Modifier.fillMaxSize()) {
-                // Messages Area
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -133,11 +131,15 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(messages) { msg ->
-                        ChatBubble(msg)
+                        ChatBubble(msg, onLoginClick)
+                    }
+                    if (viewModel.isTyping) {
+                        item {
+                            TypingIndicator()
+                        }
                     }
                 }
 
-                // Input Area
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shadowElevation = 16.dp,
@@ -158,25 +160,26 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(24.dp)),
-                            colors = TextFieldDefaults.textFieldColors(
-                                containerColor = BackgroundLight.copy(alpha = 0.5f),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = BackgroundLight.copy(alpha = 0.5f),
+                                unfocusedContainerColor = BackgroundLight.copy(alpha = 0.5f),
+                                disabledContainerColor = BackgroundLight.copy(alpha = 0.5f),
                                 focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent
                             ),
-                            maxLines = 3
+                            maxLines = 3,
+                            enabled = !viewModel.isTyping
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         FloatingActionButton(
                             onClick = {
-                                if (messageText.isNotBlank()) {
-                                    val userMsg = messageText
-                                    messages.add(Message(userMsg, true))
+                                if (messageText.isNotBlank() && !viewModel.isTyping) {
+                                    viewModel.sendMessage(messageText)
                                     messageText = ""
-                                    // Simulate AI response
-                                    messages.add(Message("Processing your request about '$userMsg'...", false))
                                 }
                             },
-                            containerColor = GreenPrimary,
+                            containerColor = if (viewModel.isTyping) Color.Gray else GreenPrimary,
                             contentColor = Color.White,
                             shape = CircleShape,
                             modifier = Modifier.size(52.dp)
@@ -191,10 +194,14 @@ fun ChatbotScreen(onBackClick: () -> Unit) {
 }
 
 @Composable
-fun ChatBubble(message: Message) {
+fun ChatBubble(message: Message, onLoginClick: () -> Unit) {
     val arrangement = if (message.isUser) Arrangement.End else Arrangement.Start
-    val bubbleColor = if (message.isUser) GreenPrimary else Color.White.copy(alpha = 0.9f)
-    val textColor = if (message.isUser) Color.White else TextPrimary
+    val bubbleColor = when {
+        message.isUser -> GreenPrimary
+        message.isError -> Color(0xFFFFEBEE)
+        else -> Color.White.copy(alpha = 0.9f)
+    }
+    val textColor = if (message.isUser) Color.White else if (message.isError) Color(0xFFC62828) else TextPrimary
     val shape = if (message.isUser) {
         RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)
     } else {
@@ -230,11 +237,64 @@ fun ChatBubble(message: Message) {
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = message.text,
+                    color = textColor,
+                    fontSize = 15.sp
+                )
+                
+                if (message.isError && (message.text.contains("session", ignoreCase = true) || message.text.contains("log in", ignoreCase = true))) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = onLoginClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(Icons.Default.Login, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Login Again", fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TypingIndicator() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(GreenPrimary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.SmartToy,
+                contentDescription = null,
+                tint = GreenPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Card(
+            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
             Text(
-                text = message.text,
-                color = textColor,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(12.dp)
+                text = "Typing...",
+                color = TextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
     }
